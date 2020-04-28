@@ -1,43 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:visitor_log_app/faculty.dart';
+import 'package:http/http.dart' as http;
 
 class VisitorInfo {
   final String visitorName;
   final String address;
   final String gender;
-  final Faculty faculty;
-  final int number;
+  final String contactNumber;
   final String description;
   final String email;
 
-  VisitorInfo(
-      {this.visitorName,
-      this.address,
-      this.gender,
-      this.faculty,
-      this.number,
-      this.description,
-      this.email});
+  VisitorInfo({this.visitorName, this.address, this.gender, this.contactNumber, this.description, this.email});
 
-  factory VisitorInfo.fromJson(Map<String, dynamic> json) {
-    return VisitorInfo(
-        visitorName: json['visitorName'],
-        address: json['address'],
-        gender: json['gender'],
-        faculty: Faculty.fromJson(json['faculty']),
-        number: json['number'],
-        description: json['description'],
-        email: json['email']);
+  Map toJson() {
+    var map = new Map<String, dynamic>();
+    map["visitorName"] = visitorName;
+    map["address"] = address;
+    map["gender"] = gender;
+    map["contactNumber"] = contactNumber;
+    map["description"] = description;
+    map["email"] = email;
+
+    return map;
   }
 }
 
-class Visitor extends StatefulWidget {
-  Visitor({Key key}) : super(key: key);
+// Future <VisitorInfo> createVisitor(String url, {Map body}) async {
+//   return http.post(url).then((http.Response response) {
+//     final int statusCode = response.statusCode;
+//     if (statusCode < 200 || statusCode > 400 || json == null) {
+//       throw new Exception("Error while fetching data");
+//     }
+//     return VisitorInfo.fromJson(json.decode(response.body));
+//   }); 
+}
+
+class VisitorForm extends StatefulWidget {
+  VisitorForm({Key key}) : super(key: key);
   _VisitorState createState() => _VisitorState();
 }
 
-class _VisitorState extends State<Visitor> {
+class _VisitorState extends State<VisitorForm> {
   final _formKey = GlobalKey<FormState>();
 
   String _validateUsername(String username) {
@@ -102,13 +105,14 @@ class _VisitorState extends State<Visitor> {
                 ),
               ),
             ),
+
             Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
                 "WELCOME VISITOR!",
                 style: Theme.of(context)
                     .textTheme
-                    .display1
+                    .headline4
                     .copyWith(color: Colors.black),
               ),
             ),
@@ -164,9 +168,18 @@ class _VisitorState extends State<Visitor> {
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
                 keyboardType: TextInputType.number,
-                decoration:
-                    InputDecoration(labelText: 'Please enter Contact Number'),
+                decoration: InputDecoration(labelText: 'Contact Number'),
                 validator: this._isNumber,
+              ),
+            ),
+
+            // Email
+            Padding(
+              padding: EdgeInsets.all(16.0),
+              child: TextFormField(
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(labelText: 'Email-ID'),
+                validator: this._isEmpty,
               ),
             ),
 
@@ -176,31 +189,22 @@ class _VisitorState extends State<Visitor> {
               child: TextFormField(
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
-                  labelText: 'Please enter reason for meeting',
+                  labelText: 'Reason',
                 ),
-                validator: this._isEmpty,
-              ),
-            ),
-
-            // Email
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                keyboardType: TextInputType.emailAddress,
-                decoration:
-                    InputDecoration(labelText: 'Please enter your Email-ID'),
                 validator: this._isEmpty,
               ),
             ),
 
             Padding(
               padding: EdgeInsets.all(8.0),
-              child: RaisedButton(
-                onPressed: _submitForm,
-                color: Colors.amber[800],
-                child: Text(
-                  "submit".toUpperCase(),
-                  style: Theme.of(context).textTheme.button,
+              child: Center(
+                child: RaisedButton(
+                  onPressed: _submitForm,
+                  color: Colors.amber[800],
+                  child: Text(
+                    "submit".toUpperCase(),
+                    style: Theme.of(context).textTheme.button,
+                  ),
                 ),
               ),
             ),

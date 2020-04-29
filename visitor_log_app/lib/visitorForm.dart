@@ -1,42 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:pin_entry_text_field/pin_entry_text_field.dart';
 import 'package:visitor_log_app/faculty.dart';
-import 'package:visitor_log_app/otpField.dart';
-
-class VisitorInfo {
-  final String visitorName;
-  final String address;
-  final String gender;
-  final String contactNumber;
-  final String description;
-  final String email;
-
-  VisitorInfo(
-      {this.visitorName,
-      this.address,
-      this.gender,
-      this.contactNumber,
-      this.description,
-      this.email});
-
-  Map toJson() {
-    List<String> names = visitorName.split(" ");
-    var map = new Map<String, dynamic>();
-    map["firstName"] = names[0];
-    map["lastName"] = names[1];
-    map["address"] = address;
-    map["gender"] = gender;
-    map["contact"] = contactNumber;
-    map["description"] = description;
-    map["email"] = email;
-
-    return map;
-  }
-}
+import 'package:visitor_log_app/visitorInfo.dart';
+import 'package:visitor_log_app/facultyInfo.dart';
 
 class Otp {
-  final String otp;
+  final int otp;
   Otp({this.otp});
 
   factory Otp.fromJson(Map<String, dynamic> parsedJson) {
@@ -59,6 +30,7 @@ class _VisitorState extends State<VisitorForm> {
   final email = TextEditingController();
   final description = TextEditingController();
 
+  VisitorInfo sendVisitor;
   void initState() {
     super.initState();
     getData();
@@ -76,28 +48,19 @@ class _VisitorState extends State<VisitorForm> {
   }
 
   List<FacultyInfo> faculties;
-
-  void createVisitor(VisitorInfo visitorInfo) async {
+  Future<Otp> futureOtp;
+  Future<Otp> createVisitor(VisitorInfo visitorInfo) async {
     final http.Response response = await http.post(
-        "https://sleepy-peak-76140.herokuapp.com/api/visitor/validate",
+        "https://sleepy-peak-76140.herokuapp.com/api/visitor/create",
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8 ',
         },
         body: jsonEncode(visitorInfo.toJson()));
     if (response.statusCode == 200) {
-      String otp = Otp.fromJson(json.decode(response.body)).otp;
-      Scaffold.of(context).showSnackBar(SnackBar(
-        content: Text(
-            "Form submitted successfully, please check you email address to verify"),
-      ));
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => OtpField(visitor: visitorInfo, otp: otp)));
+      print(response);
+      return Otp.fromJson(json.decode(response.body));
     } else {
-      Scaffold.of(context).showSnackBar(SnackBar(
-        content: Text("Oops! There was an error. Please try again"),
-      ));
+      throw Exception('Failed to send server');
     }
   }
 
@@ -132,8 +95,12 @@ class _VisitorState extends State<VisitorForm> {
           address: address.text,
           gender: gender.text,
           email: email.text,
-          description: description.text);
-      createVisitor(newVisitor);
+          description: description.text,
+          contactNumber: number.text);
+      setState(() {
+        futureOtp = createVisitor(newVisitor);
+        sendVisitor = newVisitor;
+      });
     }
   }
 
@@ -146,136 +113,198 @@ class _VisitorState extends State<VisitorForm> {
     });
   }
 
+  Widget getFutureBuilder() {
+    return FutureBuilder<Otp>(
+      future: futureOtp,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          // snapshot.data.otp.toString() has otp
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    child:
+                        Text("Please enter the 6 digit pin sent to your email:", style: Theme.of(context).textTheme.headline4.copyWith(color : Colors.black),),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: PinEntryTextField(
+                    fields: 6,
+                    onSubmit: (String pin) async {
+                      if (pin == snapshot.data.otp.toString()) {
+                        print("OTP Valid ${sendVisitor.email}");
+                        final http.Response response = await http.post(
+                            "https://sleepy-peak-76140.herokuapp.com/api/visitor/validate",
+                            headers: <String, String>{
+                              "Content-Type": "application/json"
+                            },
+                            body: jsonEncode(sendVisitor.toJson()));
+                        if (response.statusCode == 200) {
+                          Scaffold.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                "Verification Successful. Please wait while requested Faculty sends the details"),
+                          ));
+                        } else {
+                          Scaffold.of(context).showSnackBar(SnackBar(
+                            content: Text("${response.reasonPhrase}"),
+                          ));
+                        }
+                      } else {
+                        Scaffold.of(context).showSnackBar(SnackBar(
+                          content:
+                              Text("Verification failed. Please try again"),
+                        ));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (snapshot.hasError) {
+          return Text(snapshot.error);
+        }
+        return CircularProgressIndicator();
+      },
+    );
+  }
+
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: <Widget>[
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                "WELCOME VISITOR!",
-                style: Theme.of(context)
-                    .textTheme
-                    .headline4
-                    .copyWith(color: Colors.black),
-              ),
-            ),
-            // Full Name
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: visitorName,
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                ),
-                keyboardType: TextInputType.text,
-                validator: this._validateUsername,
-              ),
-            ),
-
-            // Address
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: address,
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                ),
-                keyboardType: TextInputType.multiline,
-                validator: this._isEmpty,
-              ),
-            ),
-
-            // Gender
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: gender,
-                decoration: InputDecoration(labelText: 'Gender'),
-                keyboardType: TextInputType.text,
-                validator: this._isEmpty,
-              ),
-            ),
-
-            // Faculty
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: faculty,
-                decoration: InputDecoration(
-                  labelText: 'Faculty to meet',
-                  suffixIcon: PopupMenuButton<String>(
-                    icon: Icon(Icons.arrow_drop_down),
-                    onSelected: (value) {
-                      faculty.text = value;
-                    },
-                    itemBuilder: (context) {
-                      return faculties.map<PopupMenuItem<String>>((e) {
-                        return new PopupMenuItem(
-                          child: Text(e.name),
-                          value: e.name,
-                        );
-                      }).toList();
-                    },
+        child: (futureOtp == null)
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      "WELCOME VISITOR!",
+                      style: Theme.of(context)
+                          .textTheme
+                          .headline4
+                          .copyWith(color: Colors.black),
+                    ),
                   ),
-                ),
-                validator: this._isEmpty,
-              ),
-            ),
-            
-            // Number
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: number,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Contact Number'),
-                validator: this._isNumber,
-              ),
-            ),
-
-            // Email
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(labelText: 'Email-ID'),
-                validator: this._isEmpty,
-              ),
-            ),
-
-            // Description
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: description,
-                keyboardType: TextInputType.multiline,
-                decoration: InputDecoration(
-                  labelText: 'Reason',
-                ),
-                validator: this._isEmpty,
-              ),
-            ),
-
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Center(
-                child: RaisedButton(
-                  onPressed: _submitForm,
-                  color: Colors.amber[800],
-                  child: Text(
-                    "submit".toUpperCase(),
-                    style: Theme.of(context).textTheme.button,
+                  // Full Name
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: visitorName,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                      ),
+                      keyboardType: TextInputType.text,
+                      validator: this._validateUsername,
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ],
-        ),
+
+                  // Address
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: address,
+                      decoration: InputDecoration(
+                        labelText: 'Address',
+                      ),
+                      keyboardType: TextInputType.multiline,
+                      validator: this._isEmpty,
+                    ),
+                  ),
+
+                  // Gender
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: gender,
+                      decoration: InputDecoration(labelText: 'Gender'),
+                      keyboardType: TextInputType.text,
+                      validator: this._isEmpty,
+                    ),
+                  ),
+
+                  // Faculty
+                  Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: faculty,
+                      decoration: InputDecoration(
+                        labelText: 'Faculty to meet',
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (value) {
+                            faculty.text = value;
+                          },
+                          itemBuilder: (context) {
+                            return faculties.map<PopupMenuItem<String>>((e) {
+                              return new PopupMenuItem(
+                                child: Text(e.name),
+                                value: e.name,
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
+                      validator: this._isEmpty,
+                    ),
+                  ),
+
+                  // Number
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: number,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: 'Contact Number'),
+                      validator: this._isNumber,
+                    ),
+                  ),
+
+                  // Email
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: email,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(labelText: 'Email-ID'),
+                      validator: this._isEmpty,
+                    ),
+                  ),
+
+                  // Description
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: description,
+                      keyboardType: TextInputType.multiline,
+                      decoration: InputDecoration(
+                        labelText: 'Reason',
+                      ),
+                      validator: this._isEmpty,
+                    ),
+                  ),
+
+                  Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Center(
+                      child: RaisedButton(
+                        onPressed: _submitForm,
+                        color: Colors.amber[800],
+                        child: Text(
+                          "submit".toUpperCase(),
+                          style: Theme.of(context).textTheme.button,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : getFutureBuilder(),
       ),
     );
   }

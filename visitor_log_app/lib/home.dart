@@ -52,27 +52,6 @@ class Home extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyText2,
             ),
           ),
-          // Padding(
-          //   padding: EdgeInsets.all(8.0),
-          //   child: Text(
-          //     "2.   Harsimran Singh Virk",
-          //     style: Theme.of(context).textTheme.bodyText2,
-          //   ),
-          // ),
-          // Padding(
-          //   padding: EdgeInsets.all(8.0),
-          //   child: Text(
-          //     "3.   Jash Seta",
-          //     style: Theme.of(context).textTheme.bodyText2,
-          //   ),
-          // ),
-          // Padding(
-          //   padding: EdgeInsets.all(8.0),
-          //   child: Text(
-          //     "4.   Rishikesh Hirde",
-          //     style: Theme.of(context).textTheme.bodyText2,
-          //   ),
-          // ),
           Padding(
             padding: EdgeInsets.all(8.0),
             child: Text(

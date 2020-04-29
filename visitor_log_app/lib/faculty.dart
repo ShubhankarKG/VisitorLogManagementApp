@@ -13,34 +13,35 @@ class FacultyInfo {
 
   factory FacultyInfo.fromJson(Map<String, dynamic> parsedJson) {
     return FacultyInfo(
-      name: parsedJson['name'],
-      id: parsedJson['id'],
-      email: parsedJson['email'],
-      username: parsedJson['username']
-    );
+        name: parsedJson['name'],
+        id: parsedJson['id'],
+        email: parsedJson['email'],
+        username: parsedJson['username']);
   }
 }
 
+Future<List<FacultyInfo>> getFacultyInfo() async {
+  try {
+    final response =
+        await http.get("https://sleepy-peak-76140.herokuapp.com/api/faculty/");
+    if (response.statusCode == 200) {
+      List jsonResponse = json.decode(response.body);
+      return jsonResponse
+          .map((faculty) => new FacultyInfo.fromJson(faculty))
+          .toList();
+    }
+  } catch (e) {
+    print(e.toString());
+  }
+  return null;
+}
+
 class FacultyDisplay extends StatefulWidget {
-  FacultyDisplay({Key key}) : super(key : key);
+  FacultyDisplay({Key key}) : super(key: key);
   _FacultyDisplayState createState() => _FacultyDisplayState();
 }
 
 class _FacultyDisplayState extends State<FacultyDisplay> {
-  Future<List<FacultyInfo>> getFacultyInfo() async {
-    try {
-      final response = await http.get("https://sleepy-peak-76140.herokuapp.com/api/faculty/");
-      if (response.statusCode == 200) {
-        List jsonResponse = json.decode(response.body);
-        return jsonResponse.map((faculty) => new FacultyInfo.fromJson(faculty)).toList();
-      }
-    }
-    catch (e) {
-      print(e.toString());
-    }
-    return null;
-  }
-
   ListView _facultyListView(data) {
     return ListView.builder(
       itemCount: data.length,
@@ -67,14 +68,13 @@ class _FacultyDisplayState extends State<FacultyDisplay> {
   }
 
   Widget build(BuildContext context) {
-    return FutureBuilder<List <FacultyInfo>> (
+    return FutureBuilder<List<FacultyInfo>>(
       future: getFacultyInfo(),
       builder: (context, snapshot) {
-        if (snapshot.hasData){
+        if (snapshot.hasData) {
           List<FacultyInfo> data = snapshot.data;
           return _facultyListView(data);
-        }
-        else if (snapshot.hasError) {
+        } else if (snapshot.hasError) {
           return Text("${snapshot.error}");
         }
         return CircularProgressIndicator();

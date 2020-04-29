@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:visitor_log_app/faculty.dart';
+import 'package:visitor_log_app/otpField.dart';
 
 class VisitorInfo {
   final String visitorName;
@@ -10,14 +12,22 @@ class VisitorInfo {
   final String description;
   final String email;
 
-  VisitorInfo({this.visitorName, this.address, this.gender, this.contactNumber, this.description, this.email});
+  VisitorInfo(
+      {this.visitorName,
+      this.address,
+      this.gender,
+      this.contactNumber,
+      this.description,
+      this.email});
 
   Map toJson() {
+    List<String> names = visitorName.split(" ");
     var map = new Map<String, dynamic>();
-    map["visitorName"] = visitorName;
+    map["firstName"] = names[0];
+    map["lastName"] = names[1];
     map["address"] = address;
     map["gender"] = gender;
-    map["contactNumber"] = contactNumber;
+    map["contact"] = contactNumber;
     map["description"] = description;
     map["email"] = email;
 
@@ -25,14 +35,13 @@ class VisitorInfo {
   }
 }
 
-// Future <VisitorInfo> createVisitor(String url, {Map body}) async {
-//   return http.post(url).then((http.Response response) {
-//     final int statusCode = response.statusCode;
-//     if (statusCode < 200 || statusCode > 400 || json == null) {
-//       throw new Exception("Error while fetching data");
-//     }
-//     return VisitorInfo.fromJson(json.decode(response.body));
-//   }); 
+class Otp {
+  final String otp;
+  Otp({this.otp});
+
+  factory Otp.fromJson(Map<String, dynamic> parsedJson) {
+    return Otp(otp: parsedJson["otp"]);
+  }
 }
 
 class VisitorForm extends StatefulWidget {
@@ -42,6 +51,55 @@ class VisitorForm extends StatefulWidget {
 
 class _VisitorState extends State<VisitorForm> {
   final _formKey = GlobalKey<FormState>();
+  final visitorName = TextEditingController();
+  final address = TextEditingController();
+  final gender = TextEditingController();
+  final faculty = TextEditingController();
+  final number = TextEditingController();
+  final email = TextEditingController();
+  final description = TextEditingController();
+
+  void initState() {
+    super.initState();
+    getData();
+  }
+
+  void dispose() {
+    visitorName.dispose();
+    address.dispose();
+    gender.dispose();
+    faculty.dispose();
+    number.dispose();
+    email.dispose();
+    description.dispose();
+    super.dispose();
+  }
+
+  List<FacultyInfo> faculties;
+
+  void createVisitor(VisitorInfo visitorInfo) async {
+    final http.Response response = await http.post(
+        "https://sleepy-peak-76140.herokuapp.com/api/visitor/validate",
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8 ',
+        },
+        body: jsonEncode(visitorInfo.toJson()));
+    if (response.statusCode == 200) {
+      String otp = Otp.fromJson(json.decode(response.body)).otp;
+      Scaffold.of(context).showSnackBar(SnackBar(
+        content: Text(
+            "Form submitted successfully, please check you email address to verify"),
+      ));
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => OtpField(visitor: visitorInfo, otp: otp)));
+    } else {
+      Scaffold.of(context).showSnackBar(SnackBar(
+        content: Text("Oops! There was an error. Please try again"),
+      ));
+    }
+  }
 
   String _validateUsername(String username) {
     if (username.isEmpty) {
@@ -67,23 +125,25 @@ class _VisitorState extends State<VisitorForm> {
     return null;
   }
 
-  _launchURL() async {
-    const url = 'http://www.vjti.ac.in';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      Scaffold.of(context).showSnackBar(SnackBar(
-        content: Text("No Internet Connection."),
-      ));
+  void _submitForm() {
+    if (_formKey.currentState.validate()) {
+      VisitorInfo newVisitor = new VisitorInfo(
+          visitorName: visitorName.text,
+          address: address.text,
+          gender: gender.text,
+          email: email.text,
+          description: description.text);
+      createVisitor(newVisitor);
     }
   }
 
-  void _submitForm() {
-    if (_formKey.currentState.validate()) {
-      Scaffold.of(context).showSnackBar(SnackBar(
-        content: Text("Form Submitted"),
-      ));
-    }
+  Future getData() async {
+    getFacultyInfo().then((value) {
+      setState(() {
+        faculties = value;
+        print(faculties);
+      });
+    });
   }
 
   Widget build(BuildContext context) {
@@ -93,19 +153,6 @@ class _VisitorState extends State<VisitorForm> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Center(
-                child: GestureDetector(
-                  onTap: _launchURL,
-                  child: Image.asset(
-                    "assets/images/download.jpeg",
-                    width: 200,
-                  ),
-                ),
-              ),
-            ),
-
             Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
@@ -120,6 +167,7 @@ class _VisitorState extends State<VisitorForm> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: visitorName,
                 decoration: InputDecoration(
                   labelText: 'Full Name',
                 ),
@@ -132,6 +180,7 @@ class _VisitorState extends State<VisitorForm> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: address,
                 decoration: InputDecoration(
                   labelText: 'Address',
                 ),
@@ -144,29 +193,44 @@ class _VisitorState extends State<VisitorForm> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: gender,
                 decoration: InputDecoration(labelText: 'Gender'),
                 keyboardType: TextInputType.text,
-                initialValue: 'Male',
                 validator: this._isEmpty,
               ),
             ),
 
             // Faculty
             Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: EdgeInsets.all(8.0),
               child: TextFormField(
-                keyboardType: TextInputType.text,
+                controller: faculty,
                 decoration: InputDecoration(
                   labelText: 'Faculty to meet',
+                  suffixIcon: PopupMenuButton<String>(
+                    icon: Icon(Icons.arrow_drop_down),
+                    onSelected: (value) {
+                      faculty.text = value;
+                    },
+                    itemBuilder: (context) {
+                      return faculties.map<PopupMenuItem<String>>((e) {
+                        return new PopupMenuItem(
+                          child: Text(e.name),
+                          value: e.name,
+                        );
+                      }).toList();
+                    },
+                  ),
                 ),
                 validator: this._isEmpty,
               ),
             ),
-
+            
             // Number
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: number,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(labelText: 'Contact Number'),
                 validator: this._isNumber,
@@ -177,6 +241,7 @@ class _VisitorState extends State<VisitorForm> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: email,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(labelText: 'Email-ID'),
                 validator: this._isEmpty,
@@ -187,6 +252,7 @@ class _VisitorState extends State<VisitorForm> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: TextFormField(
+                controller: description,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
                   labelText: 'Reason',
@@ -211,6 +277,25 @@ class _VisitorState extends State<VisitorForm> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget row(FacultyInfo maker) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        Text(
+          maker.name,
+          style: TextStyle(color: Colors.blue),
+        ),
+        SizedBox(
+          width: 5,
+        ),
+        Text(
+          maker.email,
+          style: TextStyle(color: Colors.orange),
+        ),
+      ],
     );
   }
 }

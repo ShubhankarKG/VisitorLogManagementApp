@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:visitor_log_app/faculty.dart';
+import 'package:visitor_log_app/home.dart';
 import 'package:visitor_log_app/visitorForm.dart';
 
 class MyHomepage extends StatefulWidget {
@@ -9,14 +10,9 @@ class MyHomepage extends StatefulWidget {
 
 class _MyHomepageState extends State<MyHomepage> {
   int _selectedIndex = 0;
-  static const TextStyle optionStyle =
-      TextStyle(fontSize: 30, fontWeight: FontWeight.bold);
   static List<Widget> _widgetOptions = <Widget>[
+    Home(),
     VisitorForm(),
-    Text(
-      'Index 0: Home',
-      style: optionStyle,
-    ),
     FacultyDisplay()
   ];
 
@@ -38,12 +34,12 @@ class _MyHomepageState extends State<MyHomepage> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle),
-            title: Text('Visitor'),
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.home),
             title: Text('Home'),
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            title: Text('Visitor'),
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.school),
